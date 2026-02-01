@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Layout from './components/Layout';
 import TripPlanner from './components/TripPlanner';
 import TouristGuide from './components/TouristGuide';
@@ -10,9 +10,9 @@ import LiveAssistant from './components/LiveAssistant';
 import { 
   Package, Globe, Clock, ShieldCheck, Heart, ArrowRight, 
   Sparkles, Loader2, Info, 
-  ExternalLink, Zap, BellRing, TrendingDown 
+  ExternalLink, Zap, BellRing, TrendingDown, AlertCircle
 } from 'lucide-react';
-import { getDailyTravelInsight, getSmartAlerts } from './services/geminiService';
+import { getDailyTravelInsight, getSmartAlerts, GeminiError } from './services/geminiService';
 import { Language } from './types';
 import { useTranslation } from './services/i18n';
 
@@ -20,24 +20,48 @@ const DashboardHome: React.FC<{onExplore: (tab: string) => void, lang: Language}
   const [insight, setInsight] = useState<{text: string, sources: any[]}>({ text: '', sources: [] });
   const [alerts, setAlerts] = useState<any[]>([]);
   const [loading, setLoading] = useState({ insight: false, alerts: false });
+  const [errors, setErrors] = useState<{ insight: string | null, alerts: string | null }>({ insight: null, alerts: null });
   const t = useTranslation(lang);
+  const fetchRef = useRef<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
-      setLoading(prev => ({ ...prev, insight: true, alerts: true }));
-      try {
-        const [insightData, alertsData] = await Promise.all([
-          getDailyTravelInsight(lang),
-          getSmartAlerts('Tokyo', lang)
-        ]);
-        setInsight(insightData);
-        setAlerts(alertsData);
-      } catch (e) {
-        console.error("Dashboard data fetch error:", e);
-      } finally {
-        setLoading({ insight: false, alerts: false });
+      // Avoid multiple concurrent identical requests
+      const currentRequestKey = `${lang}`;
+      if (fetchRef.current === currentRequestKey) return;
+      fetchRef.current = currentRequestKey;
+
+      setLoading({ insight: true, alerts: true });
+      setErrors({ insight: null, alerts: null });
+
+      // Use allSettled to handle each request independently
+      const results = await Promise.allSettled([
+        getDailyTravelInsight(lang),
+        getSmartAlerts('Tokyo', lang)
+      ]);
+
+      // Process Insight
+      if (results[0].status === 'fulfilled') {
+        setInsight(results[0].value);
+      } else {
+        const err = results[0].reason as GeminiError;
+        setErrors(prev => ({ ...prev, insight: err.code === 429 ? "Quota limited" : "Insight unavailable" }));
+        console.error("Insight fetch error:", err);
       }
+
+      // Process Alerts
+      if (results[1].status === 'fulfilled') {
+        setAlerts(results[1].value);
+      } else {
+        const err = results[1].reason as GeminiError;
+        setErrors(prev => ({ ...prev, alerts: err.code === 429 ? "Quota limited" : "Alerts unavailable" }));
+        console.error("Alerts fetch error:", err);
+      }
+
+      setLoading({ insight: false, alerts: false });
+      fetchRef.current = null;
     };
+
     fetchData();
   }, [lang]);
 
@@ -99,6 +123,13 @@ const DashboardHome: React.FC<{onExplore: (tab: string) => void, lang: Language}
           [1,2,3].map(i => (
             <div key={i} className="bg-white h-32 rounded-[32px] animate-pulse border border-slate-100 shadow-sm"></div>
           ))
+        ) : errors.alerts ? (
+          <div className="col-span-full py-6 px-8 bg-slate-50 border border-slate-200 border-dashed rounded-[32px] flex items-center gap-3 text-slate-400 font-medium">
+            <AlertCircle size={18} />
+            {errors.alerts === 'Quota limited' 
+              ? (lang === 'cn' ? '服务忙（配额限制），请稍后再试。' : 'Service busy (Quota limit), retrying soon...')
+              : (lang === 'cn' ? '无法获取警报，请稍后刷新。' : 'Unable to fetch alerts, please refresh later.')}
+          </div>
         ) : (
           alerts.length > 0 ? alerts.map(alert => {
             const IconComp = getIcon(alert.type);
@@ -137,6 +168,15 @@ const DashboardHome: React.FC<{onExplore: (tab: string) => void, lang: Language}
                 <Loader2 size={16} className="animate-spin" />
                 <p className="text-sm font-medium">{lang === 'cn' ? '正在分析全球事件和价格趋势...' : 'Analyzing global events and pricing trends...'}</p>
               </div>
+            ) : errors.insight ? (
+              <div className="flex items-center gap-2 text-slate-400 justify-center md:justify-start">
+                <AlertCircle size={16} />
+                <p className="text-sm font-medium">
+                  {errors.insight === 'Quota limited' 
+                    ? (lang === 'cn' ? 'AI 配额暂时用尽，洞察数据不可用。' : 'AI quota temporarily exhausted, insight data unavailable.')
+                    : (lang === 'cn' ? '无法获取智能洞察。' : 'Unable to fetch smart insights.')}
+                </p>
+              </div>
             ) : (
               <div className="text-slate-600 leading-relaxed prose prose-indigo max-w-none text-sm md:text-base font-medium">
                 {insight.text || (lang === 'cn' ? "一切顺利。今天全球网络未检测到重大中断。" : "Everything looks smooth for your travels.")}
@@ -145,7 +185,7 @@ const DashboardHome: React.FC<{onExplore: (tab: string) => void, lang: Language}
           </div>
         </div>
         
-        {insight.sources.length > 0 && (
+        {!errors.insight && insight.sources.length > 0 && (
           <div className="pt-6 border-t border-slate-50">
             <p className="text-[10px] font-black uppercase text-slate-400 mb-3 tracking-widest">{t('groundingCitations')}</p>
             <div className="flex flex-wrap gap-3">
