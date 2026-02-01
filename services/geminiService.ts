@@ -64,13 +64,16 @@ export const generateTravelPlans = async (
     }`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-preview-09-2025', // Required for Google Maps tool
+      model: 'gemini-2.5-flash', // Standard alias for maps grounding tool support
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }, { googleMaps: {} }],
         toolConfig: userLocation ? {
           retrievalConfig: {
-            latLng: userLocation
+            latLng: {
+              latitude: userLocation.latitude,
+              longitude: userLocation.longitude
+            }
           }
         } : undefined
       }
@@ -144,7 +147,7 @@ export const generateTouristGuide = async (
     Interests: ${preferences}. JSON array: [{ "day": 1, "activities": [{ "time": "s", "location": "s", "description": "s", "travelTip": "s", "mapUrl": "s" }] }]`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-preview-09-2025', // Required for Google Maps
+      model: 'gemini-2.5-flash', // Standard alias for maps grounding tool support
       contents: prompt,
       config: {
         tools: [{ googleMaps: {} }]
