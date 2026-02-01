@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Map, Coffee, Camera, Umbrella, ArrowRight, Loader2, Sparkles, MapPin, Play, Film, X, Zap, DollarSign, Smartphone, AlertCircle } from 'lucide-react';
+import { Map, Coffee, Camera, Umbrella, ArrowRight, Loader2, Sparkles, MapPin, Play, Film, X, Zap, DollarSign, Smartphone, AlertCircle, Key } from 'lucide-react';
 import { generateTouristGuide, generateDestinationVideo } from '../services/geminiService';
 import { ItineraryDay } from '../types';
 
@@ -28,13 +28,30 @@ const TouristGuide: React.FC = () => {
     }
   };
 
+  const checkAndPromptKey = async () => {
+    const aistudio = (window as any).aistudio;
+    if (aistudio) {
+      const hasKey = await aistudio.hasSelectedApiKey();
+      if (!hasKey) {
+        await aistudio.openSelectKey();
+        return true; // Assume success after opening
+      }
+    }
+    return true;
+  };
+
   const handleGenerateVideo = async () => {
     setError(null);
-    // Mandatory check for Veo models: Paid API key required.
-    const hasKey = await (window as any).aistudio?.hasSelectedApiKey();
-    if (!hasKey) {
-      await (window as any).aistudio?.openSelectKey();
-      // Per instructions: assume success and proceed after opening dialog
+    
+    // Veo models require a paid API key selected via openSelectKey()
+    const aistudio = (window as any).aistudio;
+    if (aistudio) {
+      const hasKey = await aistudio.hasSelectedApiKey();
+      if (!hasKey) {
+        setError("Veo video generation requires a paid API key. Please select one in the dialog.");
+        await aistudio.openSelectKey();
+        // Proceeding anyway as per instructions (mitigate race condition)
+      }
     }
     
     setVideoLoading(true);
@@ -43,14 +60,16 @@ const TouristGuide: React.FC = () => {
       setVideoUrl(url);
     } catch (err: any) {
       console.error("Video generation error:", err);
-      const errorMsg = err.toString();
+      const errorStr = JSON.stringify(err);
       
-      // If permission denied or not found, the user likely needs to select a valid paid project key.
-      if (errorMsg.includes("permission") || errorMsg.includes("not found") || errorMsg.includes("403")) {
-        setError("Veo requires a paid API key. Please select a valid key from a billing-enabled project.");
-        await (window as any).aistudio?.openSelectKey();
+      if (errorStr.includes("403") || errorStr.includes("PERMISSION_DENIED")) {
+        setError("Access Denied: Please ensure you have selected an API key from a PAID Google Cloud project with billing enabled.");
+        if (aistudio) await aistudio.openSelectKey();
+      } else if (errorStr.includes("404") || errorStr.includes("not found")) {
+        setError("Model not found: Please re-select your API key.");
+        if (aistudio) await aistudio.openSelectKey();
       } else {
-        setError("Video generation failed. Please try again later.");
+        setError("An unexpected error occurred during video generation. Please try again.");
       }
     } finally {
       setVideoLoading(false);
@@ -90,7 +109,12 @@ const TouristGuide: React.FC = () => {
               disabled={videoLoading}
               className="flex-1 md:flex-none px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all flex items-center justify-center gap-2"
             >
-              {videoLoading ? <Loader2 className="animate-spin" size={20} /> : <><Film size={20} /> AI Teaser</>}
+              {videoLoading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="animate-spin" size={20} />
+                  <span className="text-xs">Generating Video...</span>
+                </div>
+              ) : <><Film size={20} /> AI Cinematic Teaser</>}
             </button>
             <button 
               onClick={fetchGuide} 
@@ -103,19 +127,29 @@ const TouristGuide: React.FC = () => {
         </div>
 
         {error && (
-          <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-700 text-xs font-medium animate-in slide-in-from-top-2">
-            <AlertCircle size={16} />
-            {error}
+          <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex flex-col gap-2 animate-in slide-in-from-top-2">
+            <div className="flex items-center gap-3 text-rose-700 text-xs font-bold">
+              <AlertCircle size={16} />
+              {error}
+            </div>
+            {error.includes("API key") && (
+              <button 
+                onClick={() => (window as any).aistudio?.openSelectKey()}
+                className="text-xs text-rose-600 underline font-bold hover:text-rose-800 text-left pl-7"
+              >
+                Open API Key Selector
+              </button>
+            )}
           </div>
         )}
       </div>
 
       {videoUrl && (
-        <div className="relative bg-black rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in duration-500 aspect-video">
+        <div className="relative bg-black rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in duration-500 aspect-video group">
           <video src={videoUrl} controls autoPlay className="w-full h-full object-cover" />
           <button 
             onClick={() => setVideoUrl(null)}
-            className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 backdrop-blur p-2 rounded-full text-white transition-all"
+            className="absolute top-4 right-4 bg-black/50 hover:bg-black/80 backdrop-blur p-2 rounded-full text-white transition-all opacity-0 group-hover:opacity-100"
           >
             <X size={20} />
           </button>
@@ -187,9 +221,23 @@ const TouristGuide: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                <button className="w-full mt-6 py-3 bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2">
-                   View Full City Guide
-                </button>
+                <div className="mt-6 pt-6 border-t border-slate-50">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Billing Status</p>
+                  <button 
+                    onClick={() => (window as any).aistudio?.openSelectKey()}
+                    className="w-full py-3 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-100 transition-all border border-slate-200"
+                  >
+                    <Key size={14} /> Update API Key
+                  </button>
+                  <a 
+                    href="https://ai.google.dev/gemini-api/docs/billing" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="block text-center mt-3 text-[9px] text-slate-400 hover:text-indigo-600 underline"
+                  >
+                    Billing Documentation
+                  </a>
+                </div>
              </div>
           </div>
         </div>
