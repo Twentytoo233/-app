@@ -1,5 +1,6 @@
 
 export type TransportType = 'Flight' | 'Train' | 'Car' | 'Bus';
+export type Language = 'en' | 'cn';
 
 export interface TripSegment {
   id: string;
@@ -9,6 +10,7 @@ export interface TripSegment {
   startTime: string;
   duration: number; // minutes
   location?: string;
+  warning?: string;
 }
 
 export interface TravelOption {

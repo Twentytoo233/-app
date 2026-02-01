@@ -1,20 +1,57 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# VoyageMaster AI (远航大师) - 智能出行全方位建议应用
 
-# Run and deploy your AI Studio app
+VoyageMaster AI 是一款基于 Google Gemini 系列大模型构建的下一代智能出行管理平台。它不仅是一个行程规划器，更是一个融合了实时数据分析、多模态视觉处理、企业级合规审计以及协同办公能力的个人差旅助手。
 
-This contains everything you need to run your app locally.
+## 🌟 核心功能
 
-View your app in AI Studio: https://ai.studio/apps/drive/1cWlQ9LHeju6tBBIwQCUySmP3i-yTzkqY
+### 1. 全链路行程逻辑规划 (Full-Link Logistics)
+- **智能策略生成**：输入出发地、目的地及日期，AI 将生成包括从家门口到候机楼、安检流程、主程交通（航班/高铁）以及抵达后末端交通的完整时间轴。
+- **实时情报整合**：结合 Google Search 实时获取天气预报、目的地交通卡办理建议及插座标准。
+- **企业合规检查**：内置差旅标准验证，自动标记不符合企业报销政策的预定项。
 
-## Run Locally
+### 2. 沉浸式旅游探索指南
+- **AI 视频预告**：利用 Google Veo 技术，为目的地生成 720p 电影级视觉混剪视频。
+- **个性化行程定制**：支持“经典路线”与“小众探索”切换，根据用户兴趣（如：艺术、美食、摄影）生成 3 天深度游建议。
+- **地图深度整合**：所有景点均通过 Google Maps 实时验证，提供经纬度坐标与实用旅游贴士。
 
-**Prerequisites:**  Node.js
+### 3. 企业商务中心 (Business Hub)
+- **合规性仪表盘**：实时可视化显示行程的政策合规得分。
+- **费用自动汇总**：AI 自动分析账单分布（交通、酒店、餐饮），并生成专业、可直接用于报销的执行摘要。
+- **行程优化方案**：根据抵达时间和会议安排，AI 自动建议最合理的商务日程，减少时差与转场疲劳。
 
+### 4. 智能出行工具箱 (Smart Toolkit)
+- **视觉 AI 翻译**：支持拍照识别（如菜单、路牌、文档），即时翻译成目标语言并进行语义总结。
+- **行李智能助手**：基于目的地天气、行程时长及出行目的，生成动态打包清单。
+- **全球签证助手**：实时查询不同护照持有者的入境要求与最新签证动态。
+- **生存短语库**：针对医疗、求助、交通等紧急场景提供地道的外语表达。
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 5. 多人协同与财务拆分
+- **实时同步清单**：支持多人共同管理行程任务（预定、研究、采购）。
+- **智能债务结算**：针对多人出行产生的共享支出（如酒店、餐饮），AI 自动计算最优转账方案，解决“谁欠谁钱”的问题。
+
+### 6. AI 语音助理 (Live Assistant)
+- **实时语音交互**：基于 Gemini Live API，提供低延迟的语音问答体验。
+- **情景意识**：助理可根据当前的行程上下文，在语音对话中提供针对性的建议。
+
+## 🛠 技术架构
+
+- **前端框架**：React 19 (ES6 Modules)
+- **样式处理**：Tailwind CSS (响应式设计 & 动画)
+- **图标系统**：Lucide-React
+- **核心 AI 引擎**：
+  - `gemini-3-pro-preview`：复杂推理与代码处理。
+  - `gemini-3-flash-preview`：快速文本生成与多模态翻译。
+  - `gemini-2.5-flash`：Google Maps 地图搜索与实时接地。
+  - `gemini-2.5-flash-native-audio-preview-12-2025`：低延迟语音交互。
+  - `veo-3.1-fast-generate-preview`：高质量视频生成。
+- **数据可视化**：Recharts
+- **安全与合规**：基于环境变量 `process.env.API_KEY` 管理密钥，支持动态 API Key 切换。
+
+## 🚀 快速开始
+
+1. **配置密钥**：确保您的运行环境已正确配置 Google AI API Key。
+2. **选择语言**：通过顶栏切换按钮在“中文”与“English”之间切换界面。
+3. **开始规划**：在 "Trip Planner" 模块输入您的下一站目的地。
+
+---
+*VoyageMaster AI - 每一段旅程都值得被精准规划。*

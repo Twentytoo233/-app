@@ -9,15 +9,18 @@ import Collaboration from './components/Collaboration';
 import LiveAssistant from './components/LiveAssistant';
 import { 
   Package, Globe, Clock, ShieldCheck, Heart, ArrowRight, 
-  AlertTriangle, Sparkles, MapPin, Loader2, Info, 
+  Sparkles, Loader2, Info, 
   ExternalLink, Zap, BellRing, TrendingDown 
 } from 'lucide-react';
 import { getDailyTravelInsight, getSmartAlerts } from './services/geminiService';
+import { Language } from './types';
+import { useTranslation } from './services/i18n';
 
-const DashboardHome: React.FC<{onExplore: (tab: string) => void}> = ({onExplore}) => {
+const DashboardHome: React.FC<{onExplore: (tab: string) => void, lang: Language}> = ({onExplore, lang}) => {
   const [insight, setInsight] = useState<{text: string, sources: any[]}>({ text: '', sources: [] });
   const [alerts, setAlerts] = useState<any[]>([]);
   const [loading, setLoading] = useState({ insight: false, alerts: false });
+  const t = useTranslation(lang);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -64,24 +67,25 @@ const DashboardHome: React.FC<{onExplore: (tab: string) => void}> = ({onExplore}
             <Sparkles size={12} /> AI Travel Companion Active
           </div>
           <h2 className="text-4xl md:text-5xl font-black mb-4 tracking-tight leading-tight">
-            Safe Travels, <br/>Alex Nomad! ✈️
+            {t('hello')} ✈️
           </h2>
           <p className="text-indigo-100 text-lg md:text-xl opacity-90 leading-relaxed max-w-xl">
-            Your Tokyo (HND) flight departs in <span className="font-black text-white underline decoration-wavy decoration-indigo-400">48 hours</span>. 
-            All documents are verified and compliant with policy.
+            {lang === 'en' 
+              ? <>Your Tokyo (HND) flight departs in <span className="font-black text-white underline decoration-wavy decoration-indigo-400">48 hours</span>. All documents are verified and compliant.</>
+              : <>您的东京 (HND) 航班将在 <span className="font-black text-white underline decoration-wavy decoration-indigo-400">48 小时</span> 后起飞。所有文档已通过验证且符合政策。</>}
           </p>
           <div className="mt-10 flex flex-wrap gap-4">
             <button 
               onClick={() => onExplore('plan')}
               className="bg-white text-indigo-600 px-8 py-4 rounded-2xl font-bold hover:shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 group"
             >
-              View Full Itinerary <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+              {t('viewItinerary')} <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
             </button>
             <button 
               onClick={() => onExplore('business')}
               className="bg-indigo-500/30 backdrop-blur-md text-white px-8 py-4 rounded-2xl font-bold border border-white/20 hover:bg-indigo-500/50 transition-all"
             >
-              Corp Compliance Report
+              {t('complianceReport')}
             </button>
           </div>
         </div>
@@ -90,7 +94,6 @@ const DashboardHome: React.FC<{onExplore: (tab: string) => void}> = ({onExplore}
         </div>
       </section>
 
-      {/* Dynamic Smart Warnings & Alerts */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading.alerts ? (
           [1,2,3].map(i => (
@@ -119,7 +122,6 @@ const DashboardHome: React.FC<{onExplore: (tab: string) => void}> = ({onExplore}
         )}
       </div>
 
-      {/* Daily AI Insight (Google Search Grounded) */}
       <div className="bg-white border border-indigo-100 rounded-[40px] p-8 shadow-sm flex flex-col gap-6 group hover:border-indigo-300 transition-all">
         <div className="flex flex-col md:flex-row items-center gap-8">
           <div className="bg-indigo-600 p-5 rounded-[24px] text-white shadow-xl shadow-indigo-100 group-hover:scale-110 transition-transform">
@@ -128,7 +130,7 @@ const DashboardHome: React.FC<{onExplore: (tab: string) => void}> = ({onExplore}
           <div className="flex-1 text-center md:text-left">
             <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
               <h3 className="text-xl font-bold text-slate-800">Smart Situational Awareness</h3>
-              <span className="text-[10px] font-black uppercase text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">Live Search Data</span>
+              <span className="text-[10px] font-black uppercase text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">{t('liveSearch')}</span>
             </div>
             {loading.insight ? (
               <div className="flex items-center gap-2 text-slate-400 justify-center md:justify-start">
@@ -145,7 +147,7 @@ const DashboardHome: React.FC<{onExplore: (tab: string) => void}> = ({onExplore}
         
         {insight.sources.length > 0 && (
           <div className="pt-6 border-t border-slate-50">
-            <p className="text-[10px] font-black uppercase text-slate-400 mb-3 tracking-widest">Grounding Citations</p>
+            <p className="text-[10px] font-black uppercase text-slate-400 mb-3 tracking-widest">{t('groundingCitations')}</p>
             <div className="flex flex-wrap gap-3">
               {insight.sources.map((chunk, i) => (
                 chunk.web && (
@@ -165,7 +167,6 @@ const DashboardHome: React.FC<{onExplore: (tab: string) => void}> = ({onExplore}
         )}
       </div>
 
-      {/* Quick Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
          {[
            { icon: Clock, label: 'Total Trips', val: '42', color: 'blue' },
@@ -190,21 +191,22 @@ const DashboardHome: React.FC<{onExplore: (tab: string) => void}> = ({onExplore}
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [lang, setLang] = useState<Language>('en');
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'plan': return <TripPlanner />;
-      case 'guide': return <TouristGuide />;
-      case 'business': return <BusinessHub />;
-      case 'toolkit': return <Toolkit />;
-      case 'collab': return <Collaboration />;
-      case 'dashboard': return <DashboardHome onExplore={(tab) => setActiveTab(tab)} />;
-      default: return <DashboardHome onExplore={(tab) => setActiveTab(tab)} />;
+      case 'plan': return <TripPlanner lang={lang} />;
+      case 'guide': return <TouristGuide lang={lang} />;
+      case 'business': return <BusinessHub lang={lang} />;
+      case 'toolkit': return <Toolkit lang={lang} />;
+      case 'collab': return <Collaboration lang={lang} />;
+      case 'dashboard': return <DashboardHome onExplore={(tab) => setActiveTab(tab)} lang={lang} />;
+      default: return <DashboardHome onExplore={(tab) => setActiveTab(tab)} lang={lang} />;
     }
   };
 
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
+    <Layout activeTab={activeTab} setActiveTab={setActiveTab} lang={lang} setLang={setLang}>
       <div className="max-w-7xl mx-auto min-h-full">
         {renderContent()}
       </div>

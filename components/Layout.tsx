@@ -1,23 +1,28 @@
 
 import React from 'react';
-import { Plane, Map, Briefcase, LayoutDashboard, Menu, X, Bell, Wrench, Users } from 'lucide-react';
+import { Plane, Map, Briefcase, LayoutDashboard, Menu, X, Bell, Wrench, Users, Languages } from 'lucide-react';
+import { Language } from '../types';
+import { useTranslation } from '../services/i18n';
 
 interface LayoutProps {
   children: React.ReactNode;
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  lang: Language;
+  setLang: (lang: Language) => void;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, lang, setLang }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
+  const t = useTranslation(lang);
 
   const menuItems = [
-    { id: 'dashboard', label: 'My Journey', icon: LayoutDashboard },
-    { id: 'plan', label: 'Trip Planner', icon: Plane },
-    { id: 'guide', label: 'Explore Guide', icon: Map },
-    { id: 'business', label: 'Business Hub', icon: Briefcase },
-    { id: 'collab', label: 'Collaboration', icon: Users },
-    { id: 'toolkit', label: 'Smart Toolkit', icon: Wrench },
+    { id: 'dashboard', label: t('dashboard'), icon: LayoutDashboard },
+    { id: 'plan', label: t('planner'), icon: Plane },
+    { id: 'guide', label: t('guide'), icon: Map },
+    { id: 'business', label: t('business'), icon: Briefcase },
+    { id: 'collab', label: t('collab'), icon: Users },
+    { id: 'toolkit', label: t('toolkit'), icon: Wrench },
   ];
 
   return (
@@ -29,7 +34,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
             <div className="bg-indigo-600 p-2 rounded-xl text-white">
               <Plane size={24} />
             </div>
-            {isSidebarOpen && <span className="font-bold text-xl tracking-tight text-slate-800">VoyageMaster</span>}
+            {isSidebarOpen && <span className="font-bold text-xl tracking-tight text-slate-800">{t('title')}</span>}
           </div>
         </div>
 
@@ -64,8 +69,17 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden">
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
-          <h1 className="text-xl font-semibold text-slate-800 capitalize">{activeTab.replace('-', ' ')}</h1>
+          <h1 className="text-xl font-semibold text-slate-800">{menuItems.find(i => i.id === activeTab)?.label}</h1>
           <div className="flex items-center gap-4">
+            {/* Language Toggle */}
+            <button 
+              onClick={() => setLang(lang === 'en' ? 'cn' : 'en')}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
+            >
+              <Languages size={14} />
+              {t('langToggle')}
+            </button>
+
             <button className="p-2 text-slate-400 hover:text-slate-600 transition-colors relative">
               <Bell size={20} />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
