@@ -137,6 +137,11 @@ const LiveAssistant: React.FC = () => {
           },
           onerror: (e) => {
             console.error('Live Assistant Error:', e);
+            const errorStr = JSON.stringify(e).toLowerCase();
+            if (errorStr.includes("404") || errorStr.includes("not found")) {
+               const aistudio = (window as any).aistudio;
+               if (aistudio) aistudio.openSelectKey();
+            }
             stopSession();
           },
           onclose: () => {
@@ -149,6 +154,11 @@ const LiveAssistant: React.FC = () => {
       sessionRef.current = await sessionPromise;
     } catch (err) {
       console.error('Failed to start Live Assistant:', err);
+      const errorStr = JSON.stringify(err).toLowerCase();
+      if (errorStr.includes("404") || errorStr.includes("not found")) {
+          const aistudio = (window as any).aistudio;
+          if (aistudio) aistudio.openSelectKey();
+      }
       setStatus('idle');
     }
   };
