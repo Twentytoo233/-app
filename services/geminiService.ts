@@ -5,6 +5,27 @@ import { TripPlanResponse, TravelPreferences } from "../types";
 // Always create a fresh instance to ensure the latest API key is used
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
+/**
+ * Utility to extract JSON from a potential markdown code block
+ */
+const parseJsonFromText = (text: string) => {
+  try {
+    // If it's already pure JSON
+    return JSON.parse(text);
+  } catch (e) {
+    // Try to extract from markdown blocks
+    const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (match && match[1]) {
+      try {
+        return JSON.parse(match[1]);
+      } catch (e2) {
+        console.error("Failed to parse extracted JSON", e2);
+      }
+    }
+    throw new Error("Could not parse JSON from response");
+  }
+};
+
 export const generateTravelPlans = async (
   from: string,
   to: string,
@@ -28,10 +49,31 @@ export const generateTravelPlans = async (
   - Emergency: Local emergency numbers (Police, Ambulance) and Embassy contact if cross-border.
 
   Compliance Check: Determine if each option fits a typical corporate budget of ¥5000 and standard cabin classes.
-  Use Google Search for latest schedules and prices. Use Google Maps for terminal/hub layout logic.`;
+  Use Google Search for latest schedules and prices. Use Google Maps for terminal/hub layout logic.
+  
+  IMPORTANT: Return the response strictly in JSON format matching this structure:
+  {
+    "options": [
+      {
+        "id": "string",
+        "transportType": "string",
+        "totalCost": number,
+        "totalDuration": number,
+        "score": number,
+        "compliance": boolean,
+        "segments": [{ "id": "string", "type": "transit|security|main|arrival", "title": "string", "description": "string", "startTime": "string", "duration": number, "warning": "string" }]
+      }
+    ],
+    "localInfo": {
+      "weather": "string",
+      "tips": "string",
+      "emergency": "string",
+      "practicalities": "string"
+    }
+  }`;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-2.5-flash',
     contents: prompt,
     config: {
       tools: [{ googleSearch: {} }, { googleMaps: {} }],
@@ -39,57 +81,12 @@ export const generateTravelPlans = async (
         retrievalConfig: {
           latLng: userLocation
         }
-      },
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          options: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                id: { type: Type.STRING },
-                transportType: { type: Type.STRING },
-                totalCost: { type: Type.NUMBER },
-                totalDuration: { type: Type.NUMBER },
-                score: { type: Type.NUMBER },
-                compliance: { type: Type.BOOLEAN },
-                segments: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      id: { type: Type.STRING },
-                      type: { type: Type.STRING },
-                      title: { type: Type.STRING },
-                      description: { type: Type.STRING },
-                      startTime: { type: Type.STRING },
-                      duration: { type: Type.NUMBER },
-                      location: { type: Type.STRING },
-                      warning: { type: Type.STRING }
-                    },
-                    required: ["id", "type", "title", "description", "startTime", "duration"]
-                  }
-                }
-              }
-            }
-          },
-          localInfo: {
-            type: Type.OBJECT,
-            properties: {
-              weather: { type: Type.STRING },
-              tips: { type: Type.STRING },
-              emergency: { type: Type.STRING },
-              practicalities: { type: Type.STRING, description: "Socket types, voltage, and currency tips" }
-            }
-          }
-        }
       }
     }
   });
 
-  const data = JSON.parse(response.text || '{}');
+  const text = response.text || '{}';
+  const data = parseJsonFromText(text);
   const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
   if (groundingChunks) {
     data.groundingSources = groundingChunks;
@@ -115,27 +112,12 @@ export const getSmartAlerts = async (destination: string): Promise<any[]> => {
     1. Check for extreme weather or natural events using Google Search.
     2. Check for major events (concerts, marathons, holidays) that might cause transport delays or price spikes.
     3. Identify any significant price trends for airfare or accommodation to ${destination}.
-    Return a JSON array of objects with {id, title, desc, type: 'warning'|'event'|'price', color: 'amber'|'rose'|'indigo'}.`,
+    Return ONLY a JSON array of objects: [{id: number, title: string, desc: string, type: 'warning'|'event'|'price', color: 'amber'|'rose'|'indigo'}]`,
     config: {
-      tools: [{ googleSearch: {} }],
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            id: { type: Type.NUMBER },
-            title: { type: Type.STRING },
-            desc: { type: Type.STRING },
-            type: { type: Type.STRING, description: "warning, event, or price" },
-            color: { type: Type.STRING, description: "amber, rose, or indigo" }
-          },
-          required: ["id", "title", "desc", "type", "color"]
-        }
-      }
+      tools: [{ googleSearch: {} }]
     }
   });
-  return JSON.parse(response.text || '[]');
+  return parseJsonFromText(response.text || '[]');
 };
 
 export const getLuggageAdvisor = async (airline: string): Promise<string> => {
@@ -157,41 +139,19 @@ export const generateTouristGuide = async (
   const ai = getAI();
   const prompt = `Generate a ${days}-day ${isNiche ? 'unique/niche' : 'classic'} tourist guide for ${destination}. 
   Interests: ${preferences}. Optimize sequence geographically. Include transport modes (walk/bus/taxi) between each location.
-  Include local practical info like typical power socket types and currency tips.`;
+  Include local practical info like typical power socket types and currency tips.
+  
+  IMPORTANT: Return strictly a JSON array: 
+  [{ "day": number, "activities": [{ "time": "string", "location": "string", "description": "string", "travelTip": "string", "mapUrl": "string" }] }]`;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-2.5-flash',
     contents: prompt,
     config: {
-      tools: [{ googleMaps: {} }],
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            day: { type: Type.NUMBER },
-            activities: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  time: { type: Type.STRING },
-                  location: { type: Type.STRING },
-                  description: { type: Type.STRING },
-                  travelTip: { type: Type.STRING },
-                  mapUrl: { type: Type.STRING }
-                },
-                required: ["time", "location", "description"]
-              }
-            }
-          },
-          required: ["day", "activities"]
-        }
-      }
+      tools: [{ googleMaps: {} }]
     }
   });
-  return JSON.parse(response.text || '[]');
+  return parseJsonFromText(response.text || '[]');
 };
 
 export const generateDestinationVideo = async (destination: string) => {

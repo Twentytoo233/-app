@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Map, Coffee, Camera, Umbrella, ArrowRight, Loader2, Sparkles, MapPin, Play, Film, X, Zap, DollarSign, Smartphone } from 'lucide-react';
+import { Map, Coffee, Camera, Umbrella, ArrowRight, Loader2, Sparkles, MapPin, Play, Film, X, Zap, DollarSign, Smartphone, AlertCircle } from 'lucide-react';
 import { generateTouristGuide, generateDestinationVideo } from '../services/geminiService';
 import { ItineraryDay } from '../types';
 
@@ -12,32 +12,45 @@ const TouristGuide: React.FC = () => {
   const [isNiche, setIsNiche] = useState(false);
   const [interests, setInterests] = useState('Temples, street food, artisan shops');
   const [itinerary, setItinerary] = useState<ItineraryDay[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchGuide = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await generateTouristGuide(dest, 3, interests, isNiche);
       setItinerary(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setError("Failed to generate guide. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleGenerateVideo = async () => {
-    if (!(window as any).aistudio?.hasSelectedApiKey()) {
+    setError(null);
+    // Mandatory check for Veo models: Paid API key required.
+    const hasKey = await (window as any).aistudio?.hasSelectedApiKey();
+    if (!hasKey) {
       await (window as any).aistudio?.openSelectKey();
+      // Per instructions: assume success and proceed after opening dialog
     }
     
     setVideoLoading(true);
     try {
       const url = await generateDestinationVideo(dest);
       setVideoUrl(url);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Video generation error:", err);
-      if (err.toString().includes("Requested entity was not found")) {
+      const errorMsg = err.toString();
+      
+      // If permission denied or not found, the user likely needs to select a valid paid project key.
+      if (errorMsg.includes("permission") || errorMsg.includes("not found") || errorMsg.includes("403")) {
+        setError("Veo requires a paid API key. Please select a valid key from a billing-enabled project.");
         await (window as any).aistudio?.openSelectKey();
+      } else {
+        setError("Video generation failed. Please try again later.");
       }
     } finally {
       setVideoLoading(false);
@@ -88,6 +101,13 @@ const TouristGuide: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {error && (
+          <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-700 text-xs font-medium animate-in slide-in-from-top-2">
+            <AlertCircle size={16} />
+            {error}
+          </div>
+        )}
       </div>
 
       {videoUrl && (
