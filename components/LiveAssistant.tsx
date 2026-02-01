@@ -2,8 +2,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { Mic, MicOff, Volume2, X, MessageSquare, Loader2, Sparkles } from 'lucide-react';
+import { Language } from '../types';
 
-const LiveAssistant: React.FC = () => {
+interface LiveAssistantProps {
+  lang: Language;
+}
+
+const LiveAssistant: React.FC<LiveAssistantProps> = ({ lang }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -15,7 +20,6 @@ const LiveAssistant: React.FC = () => {
   const nextStartTimeRef = useRef<number>(0);
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
 
-  // PCM Encoding/Decoding helpers as per instructions
   const encode = (bytes: Uint8Array) => {
     let binary = '';
     const len = bytes.byteLength;
@@ -70,6 +74,10 @@ const LiveAssistant: React.FC = () => {
     const outputCtx = audioContextRef.current;
     const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
 
+    const systemInstruction = lang === 'cn' 
+      ? '你是一位远航大师（VoyageMaster AI）的智能出行管家。请使用中文为用户提供行程规划、当地贴士和物流建议。回复应简洁且富有帮助。'
+      : 'You are a helpful travel concierge for VoyageMaster AI. Help users with itinerary planning, local tips, and travel logistics via voice in real-time. Respond in English. Keep responses concise and helpful.';
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
@@ -80,7 +88,7 @@ const LiveAssistant: React.FC = () => {
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
           },
-          systemInstruction: 'You are a helpful travel concierge for VoyageMaster AI. Help users with itinerary planning, local tips, and travel logistics via voice in real-time. Keep responses concise and helpful.',
+          systemInstruction,
           inputAudioTranscription: {},
           outputAudioTranscription: {},
         },
@@ -137,11 +145,6 @@ const LiveAssistant: React.FC = () => {
           },
           onerror: (e) => {
             console.error('Live Assistant Error:', e);
-            const errorStr = JSON.stringify(e).toLowerCase();
-            if (errorStr.includes("404") || errorStr.includes("not found")) {
-               const aistudio = (window as any).aistudio;
-               if (aistudio) aistudio.openSelectKey();
-            }
             stopSession();
           },
           onclose: () => {
@@ -154,11 +157,6 @@ const LiveAssistant: React.FC = () => {
       sessionRef.current = await sessionPromise;
     } catch (err) {
       console.error('Failed to start Live Assistant:', err);
-      const errorStr = JSON.stringify(err).toLowerCase();
-      if (errorStr.includes("404") || errorStr.includes("not found")) {
-          const aistudio = (window as any).aistudio;
-          if (aistudio) aistudio.openSelectKey();
-      }
       setStatus('idle');
     }
   };
@@ -184,7 +182,7 @@ const LiveAssistant: React.FC = () => {
           <div className="bg-indigo-600 p-4 text-white flex justify-between items-center">
             <div className="flex items-center gap-2">
               <Sparkles size={18} />
-              <span className="font-bold text-sm">AI Travel Concierge</span>
+              <span className="font-bold text-sm">{lang === 'cn' ? 'AI 语音助理' : 'AI Travel Concierge'}</span>
             </div>
             <button onClick={() => setIsOpen(false)} className="hover:bg-white/20 p-1 rounded-lg transition-colors">
               <X size={18} />
@@ -209,19 +207,19 @@ const LiveAssistant: React.FC = () => {
             
             <div className="space-y-1">
               <p className="font-bold text-slate-800">
-                {status === 'idle' && 'Ready to assist'}
-                {status === 'connecting' && 'Establishing link...'}
-                {status === 'listening' && 'Listening to you...'}
-                {status === 'speaking' && 'Concierge speaking'}
+                {status === 'idle' && (lang === 'cn' ? '准备就绪' : 'Ready to assist')}
+                {status === 'connecting' && (lang === 'cn' ? '正在连接...' : 'Establishing link...')}
+                {status === 'listening' && (lang === 'cn' ? '正在倾听...' : 'Listening to you...')}
+                {status === 'speaking' && (lang === 'cn' ? '助理正在发言' : 'Concierge speaking')}
               </p>
               <p className="text-xs text-slate-400">
-                {isActive ? 'Talk naturally about your travel needs' : 'Press start to begin voice consultation'}
+                {isActive ? (lang === 'cn' ? '请讲出您的需求' : 'Talk naturally about your travel needs') : (lang === 'cn' ? '点击开始进行语音咨询' : 'Press start to begin voice consultation')}
               </p>
             </div>
 
             {transcription && (
               <div className="w-full bg-slate-50 rounded-xl p-3 text-left max-h-24 overflow-y-auto shadow-inner">
-                <p className="text-[10px] text-slate-400 font-black uppercase mb-1 tracking-widest">Transcript</p>
+                <p className="text-[10px] text-slate-400 font-black uppercase mb-1 tracking-widest">{lang === 'cn' ? '文字转录' : 'Transcript'}</p>
                 <p className="text-xs text-slate-600 italic leading-relaxed">"{transcription}"</p>
               </div>
             )}
@@ -232,7 +230,7 @@ const LiveAssistant: React.FC = () => {
                   onClick={startSession}
                   className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
                 >
-                  <Mic size={18} /> Start Call
+                  <Mic size={18} /> {lang === 'cn' ? '开始通话' : 'Start Call'}
                 </button>
               ) : (
                 <>
@@ -248,7 +246,7 @@ const LiveAssistant: React.FC = () => {
                     onClick={stopSession}
                     className="flex-1 bg-rose-600 text-white py-3 rounded-xl font-bold hover:bg-rose-700 transition-all shadow-lg shadow-rose-100"
                   >
-                    End Session
+                    {lang === 'cn' ? '结束通话' : 'End Session'}
                   </button>
                 </>
               )}
@@ -263,12 +261,7 @@ const LiveAssistant: React.FC = () => {
           isOpen ? 'bg-slate-800 text-white' : 'bg-indigo-600 text-white'
         }`}
       >
-        {isOpen ? <X size={24} /> : (
-          <div className="relative">
-            <MessageSquare size={24} />
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></div>
-          </div>
-        )}
+        {isOpen ? <X size={24} /> : <MessageSquare size={24} />}
       </button>
     </div>
   );

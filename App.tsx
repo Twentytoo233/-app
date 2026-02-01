@@ -27,8 +27,8 @@ const DashboardHome: React.FC<{onExplore: (tab: string) => void, lang: Language}
       setLoading(prev => ({ ...prev, insight: true, alerts: true }));
       try {
         const [insightData, alertsData] = await Promise.all([
-          getDailyTravelInsight(),
-          getSmartAlerts('Tokyo') // Defaulting to Tokyo for simulation
+          getDailyTravelInsight(lang),
+          getSmartAlerts('Tokyo', lang)
         ]);
         setInsight(insightData);
         setAlerts(alertsData);
@@ -39,7 +39,7 @@ const DashboardHome: React.FC<{onExplore: (tab: string) => void, lang: Language}
       }
     };
     fetchData();
-  }, []);
+  }, [lang]);
 
   const getIcon = (type: string) => {
     switch(type) {
@@ -116,7 +116,7 @@ const DashboardHome: React.FC<{onExplore: (tab: string) => void, lang: Language}
             );
           }) : (
             <div className="col-span-full py-8 text-center text-slate-400 bg-white border border-dashed border-slate-200 rounded-[32px]">
-              No active alerts for your current route.
+              {lang === 'cn' ? '当前航线暂无活动警报。' : 'No active alerts for your current route.'}
             </div>
           )
         )}
@@ -129,17 +129,17 @@ const DashboardHome: React.FC<{onExplore: (tab: string) => void, lang: Language}
           </div>
           <div className="flex-1 text-center md:text-left">
             <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
-              <h3 className="text-xl font-bold text-slate-800">Smart Situational Awareness</h3>
+              <h3 className="text-xl font-bold text-slate-800">{lang === 'cn' ? '智能情境感知' : 'Smart Situational Awareness'}</h3>
               <span className="text-[10px] font-black uppercase text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">{t('liveSearch')}</span>
             </div>
             {loading.insight ? (
               <div className="flex items-center gap-2 text-slate-400 justify-center md:justify-start">
                 <Loader2 size={16} className="animate-spin" />
-                <p className="text-sm font-medium">Analyzing global events and pricing trends...</p>
+                <p className="text-sm font-medium">{lang === 'cn' ? '正在分析全球事件和价格趋势...' : 'Analyzing global events and pricing trends...'}</p>
               </div>
             ) : (
               <div className="text-slate-600 leading-relaxed prose prose-indigo max-w-none text-sm md:text-base font-medium">
-                {insight.text || "Everything looks smooth for your travels. No significant disruptions detected on the global network today."}
+                {insight.text || (lang === 'cn' ? "一切顺利。今天全球网络未检测到重大中断。" : "Everything looks smooth for your travels.")}
               </div>
             )}
           </div>
@@ -169,10 +169,10 @@ const DashboardHome: React.FC<{onExplore: (tab: string) => void, lang: Language}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
          {[
-           { icon: Clock, label: 'Total Trips', val: '42', color: 'blue' },
-           { icon: ShieldCheck, label: 'Insurance', val: 'Active', color: 'emerald' },
-           { icon: Heart, label: 'Rewards', val: '12.4k', color: 'rose' },
-           { icon: Package, label: 'Avg Bag', val: '15.2kg', color: 'amber' },
+           { icon: Clock, label: lang === 'cn' ? '行程总计' : 'Total Trips', val: '42', color: 'blue' },
+           { icon: ShieldCheck, label: lang === 'cn' ? '保险状态' : 'Insurance', val: lang === 'cn' ? '生效中' : 'Active', color: 'emerald' },
+           { icon: Heart, label: lang === 'cn' ? '积分奖励' : 'Rewards', val: '12.4k', color: 'rose' },
+           { icon: Package, label: lang === 'cn' ? '平均行李' : 'Avg Bag', val: '15.2kg', color: 'amber' },
          ].map((stat, i) => (
            <div key={i} className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-4 hover:shadow-lg hover:-translate-y-1 transition-all cursor-default">
               <div className={`bg-${stat.color}-50 p-4 rounded-2xl text-${stat.color}-600`}>
@@ -210,7 +210,7 @@ const App: React.FC = () => {
       <div className="max-w-7xl mx-auto min-h-full">
         {renderContent()}
       </div>
-      <LiveAssistant />
+      <LiveAssistant lang={lang} />
     </Layout>
   );
 };
