@@ -136,9 +136,11 @@ const LiveAssistant: React.FC<LiveAssistantProps> = ({ lang }) => {
             scriptProcessor.connect(inputCtx.destination);
           },
           onmessage: async (message) => {
-            if (message.serverContent?.modelTurn?.parts[0]?.inlineData?.data) {
+            const base64Audio =
+              message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
+
+            if (base64Audio) {
               setStatus('speaking');
-              const base64Audio = message.serverContent.modelTurn.parts[0].inlineData.data;
               nextStartTimeRef.current = Math.max(nextStartTimeRef.current, outputCtx.currentTime);
               
               const audioBuffer = await decodeAudioData(decode(base64Audio), outputCtx, 24000, 1);
