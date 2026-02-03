@@ -1,15 +1,16 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Map, Coffee, Camera, Umbrella, ArrowRight, Loader2, Sparkles, MapPin, Play, Film, X, Zap, DollarSign, Smartphone, AlertCircle, Key } from 'lucide-react';
 import { generateTouristGuide, generateDestinationVideo } from '../services/geminiService';
 import { ItineraryDay, Language } from '../types';
 
 interface TouristGuideProps {
   lang: Language;
+  defaultDest?: string;
 }
 
-const TouristGuide: React.FC<TouristGuideProps> = ({ lang }) => {
-  const [dest, setDest] = useState(lang === 'cn' ? '日本，京都' : 'Kyoto, Japan');
+const TouristGuide: React.FC<TouristGuideProps> = ({ lang, defaultDest }) => {
+  const [dest, setDest] = useState(defaultDest || (lang === 'cn' ? '日本，京都' : 'Kyoto, Japan'));
   const [loading, setLoading] = useState(false);
   const [videoLoading, setVideoLoading] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -17,6 +18,11 @@ const TouristGuide: React.FC<TouristGuideProps> = ({ lang }) => {
   const [interests, setInterests] = useState(lang === 'cn' ? '寺庙，街头美食，手工艺店' : 'Temples, street food, artisan shops');
   const [itinerary, setItinerary] = useState<ItineraryDay[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Sync with global destination if it changes
+  useEffect(() => {
+    if (defaultDest) setDest(defaultDest);
+  }, [defaultDest]);
 
   const fetchGuide = async () => {
     setLoading(true);
@@ -59,7 +65,7 @@ const TouristGuide: React.FC<TouristGuideProps> = ({ lang }) => {
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
+          <div className="animate-in highlight-fade">
             <label className="text-xs font-black text-slate-400 uppercase mb-1 block">{lang === 'cn' ? '城市 / 地标' : 'City / Landmark'}</label>
             <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-50 rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-indigo-500">
               <Map size={20} className="text-indigo-600" />
@@ -104,28 +110,7 @@ const TouristGuide: React.FC<TouristGuideProps> = ({ lang }) => {
             </button>
           </div>
         </div>
-
-        {error && (
-          <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex flex-col gap-2 animate-in slide-in-from-top-2">
-            <div className="flex items-center gap-3 text-rose-700 text-xs font-bold">
-              <AlertCircle size={16} />
-              {error}
-            </div>
-          </div>
-        )}
       </div>
-
-      {videoUrl && (
-        <div className="relative bg-black rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in duration-500 aspect-video group">
-          <video src={videoUrl} controls autoPlay className="w-full h-full object-cover" />
-          <button 
-            onClick={() => setVideoUrl(null)}
-            className="absolute top-4 right-4 bg-black/50 hover:bg-black/80 backdrop-blur p-2 rounded-full text-white transition-all opacity-0 group-hover:opacity-100"
-          >
-            <X size={20} />
-          </button>
-        </div>
-      )}
 
       {itinerary.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">

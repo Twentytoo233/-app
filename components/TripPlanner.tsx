@@ -1,23 +1,34 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, MapPin, Calendar, DollarSign, Loader2, CheckCircle2, AlertTriangle, Clock, ArrowRight, Sliders, ExternalLink, Info, PackageOpen, Home, Navigation, ShieldCheck } from 'lucide-react';
 import { generateTravelPlans, getLuggageAdvisor } from '../services/geminiService';
-import { TripPlanResponse, TravelPreferences, Language } from '../types';
+import { TripPlanResponse, TravelPreferences, Language, TripContext } from '../types';
 
 interface TripPlannerProps {
   lang: Language;
+  context: TripContext;
+  onPlanGenerated: (context: TripContext) => void;
 }
 
-const TripPlanner: React.FC<TripPlannerProps> = ({ lang }) => {
+const TripPlanner: React.FC<TripPlannerProps> = ({ lang, context, onPlanGenerated }) => {
   const [loading, setLoading] = useState(false);
   const [luggageLoading, setLuggageLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [formData, setFormData] = useState({
-    from: 'Shanghai, China',
-    to: 'Tokyo, Japan',
-    date: '2024-06-15',
+    from: context.from,
+    to: context.to,
+    date: context.date,
   });
   
+  // Sync if context changes from outside
+  useEffect(() => {
+    setFormData({
+      from: context.from,
+      to: context.to,
+      date: context.date
+    });
+  }, [context]);
+
   const [preferences, setPreferences] = useState<TravelPreferences>({
     budget: 5000,
     transport: 'Flight',
@@ -49,6 +60,13 @@ const TripPlanner: React.FC<TripPlannerProps> = ({ lang }) => {
       
       const data = await generateTravelPlans(formData.from, formData.to, formData.date, preferences, lang, userPos);
       setResults(data);
+
+      // Notify parent about the updated context
+      onPlanGenerated({
+        from: formData.from,
+        to: formData.to,
+        date: formData.date
+      });
 
       if (preferences.transport === 'Flight') {
         setLuggageLoading(true);

@@ -2,6 +2,12 @@
 export type TransportType = 'Flight' | 'Train' | 'Car' | 'Bus';
 export type Language = 'en' | 'cn';
 
+export interface TripContext {
+  from: string;
+  to: string;
+  date: string;
+}
+
 export interface TripSegment {
   id: string;
   type: 'transit' | 'security' | 'main' | 'transfer' | 'arrival';
