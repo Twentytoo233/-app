@@ -35,7 +35,8 @@ VoyageMaster AI 是一款基于 Google Gemini 系列大模型构建的下一代�
 
 ## 🛠 技术架构
 
-- **前端框架**：React 19 (ES6 Modules)
+- **前端框架**：Next.js 15 + React 19
+- **后端框架**：Next.js API Routes
 - **样式处理**：Tailwind CSS (响应式设计 & 动画)
 - **图标系统**：Lucide-React
 - **核心 AI 引擎**：
@@ -45,13 +46,80 @@ VoyageMaster AI 是一款基于 Google Gemini 系列大模型构建的下一代�
   - `gemini-2.5-flash-native-audio-preview-12-2025`：低延迟语音交互。
   - `veo-3.1-fast-generate-preview`：高质量视频生成。
 - **数据可视化**：Recharts
-- **安全与合规**：基于环境变量 `process.env.API_KEY` 管理密钥，支持动态 API Key 切换。
+- **安全与合规**：API Key 安全存储在后端环境变量中，前端通过 API 路由调用，确保密钥不会泄露。
 
 ## 🚀 快速开始
 
-1. **配置密钥**：确保您的运行环境已正确配置 Google AI API Key。
-2. **选择语言**：通过顶栏切换按钮在“中文”与“English”之间切换界面。
-3. **开始规划**：在 "Trip Planner" 模块输入您的下一站目的地。
+### 1. 安装依赖
+
+```bash
+npm install
+```
+
+### 2. 配置环境变量
+
+创建 `.env.local` 文件（不要提交到 Git）：
+
+```env
+# Gemini API Key - 只在后端使用，不会暴露到前端
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# Next.js 环境变量（可选）
+NEXT_PUBLIC_APP_NAME=VoyageMaster AI
+```
+
+**重要安全提示**：
+- `GEMINI_API_KEY` 只会在服务器端使用，不会暴露到客户端
+- 确保 `.env.local` 文件已添加到 `.gitignore` 中
+- 不要在前端代码中直接使用 `process.env.GEMINI_API_KEY`
+
+### 3. 启动开发服务器
+
+```bash
+npm run dev
+```
+
+应用将在 `http://localhost:3000` 启动。
+
+### 4. 构建生产版本
+
+```bash
+npm run build
+npm start
+```
+
+## 🔒 安全说明
+
+本项目采用前后端分离架构，确保 API Key 安全：
+
+1. **后端 API 路由**：所有 Gemini API 调用都在 `/app/api/gemini/route.ts` 中处理
+2. **环境变量**：`GEMINI_API_KEY` 只存在于服务器端环境变量中
+3. **前端调用**：前端通过 `/api/gemini` 路由调用后端，不直接访问 Gemini API
+4. **Live Assistant**：实时音频流功能通过 `/api/gemini/live` 路由获取配置
+
+## 📁 项目结构
+
+```
+远航大师/
+├── app/                    # Next.js App Router
+│   ├── api/               # API 路由（后端）
+│   │   └── gemini/        # Gemini API 代理
+│   ├── layout.tsx         # 根布局
+│   ├── page.tsx           # 首页
+│   └── globals.css        # 全局样式
+├── components/             # React 组件
+├── services/              # 服务层
+│   ├── geminiService.ts   # Gemini API 调用（调用后端）
+│   └── i18n.ts            # 国际化
+├── types.ts               # TypeScript 类型定义
+└── package.json           # 依赖配置
+```
+
+## 🌐 使用说明
+
+1. **配置密钥**：确保 `.env.local` 中已配置 `GEMINI_API_KEY`
+2. **选择语言**：通过顶栏切换按钮在"中文"与"English"之间切换界面
+3. **开始规划**：在 "Trip Planner" 模块输入您的下一站目的地
 
 ---
 *VoyageMaster AI - 每一段旅程都值得被精准规划。*

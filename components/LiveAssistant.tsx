@@ -66,7 +66,30 @@ const LiveAssistant: React.FC<LiveAssistantProps> = ({ lang }) => {
 
   const startSession = async () => {
     setStatus('connecting');
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+    
+    // 从后端 API 获取 API Key
+    let apiKey = '';
+    try {
+      const response = await fetch('/api/gemini/live', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lang })
+      });
+      if (!response.ok) {
+        throw new Error('Failed to get API configuration');
+      }
+      const data = await response.json();
+      apiKey = data.apiKey;
+      if (!apiKey) {
+        throw new Error('API Key not available');
+      }
+    } catch (err) {
+      console.error('Failed to initialize Live Assistant:', err);
+      setStatus('idle');
+      return;
+    }
+    
+    const ai = new GoogleGenAI({ apiKey });
     
     if (!audioContextRef.current) {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });

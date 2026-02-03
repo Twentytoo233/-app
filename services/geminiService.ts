@@ -1,8 +1,4 @@
-
-import { GoogleGenAI, Type } from "@google/genai";
 import { TripPlanResponse, TravelPreferences, Language } from "../types";
-
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
 /**
  * Custom error class for API issues
@@ -15,6 +11,37 @@ export class GeminiError extends Error {
 }
 
 /**
+ * 调用后端 API 的通用函数
+ */
+const callBackendAPI = async (action: string, params: any) => {
+  try {
+    const response = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action, ...params }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new GeminiError(
+        errorData.error || `API request failed with status ${response.status}`,
+        errorData.code,
+        errorData.status
+      );
+    }
+
+    return await response.json();
+  } catch (error: any) {
+    if (error instanceof GeminiError) {
+      throw error;
+    }
+    throw new GeminiError(error.message || 'Network error occurred', 500);
+  }
+};
+
+/**
  * Utility for exponential backoff retries with smarter 429 handling
  */
 const fetchWithRetry = async <T>(fn: () => Promise<T>, maxRetries = 4, initialDelay = 2000): Promise<T> => {
@@ -25,7 +52,7 @@ const fetchWithRetry = async <T>(fn: () => Promise<T>, maxRetries = 4, initialDe
     } catch (err: any) {
       lastError = err;
       const errorStr = JSON.stringify(err).toLowerCase();
-      const is429 = errorStr.includes("429") || errorStr.includes("quota") || errorStr.includes("resource_exhausted") || err.status === 429;
+      const is429 = errorStr.includes("429") || errorStr.includes("quota") || errorStr.includes("resource_exhausted") || err.code === 429;
       
       if (is429 && i < maxRetries - 1) {
         // Increase delay significantly for 429s (jittered exponential backoff)
@@ -45,6 +72,7 @@ const fetchWithRetry = async <T>(fn: () => Promise<T>, maxRetries = 4, initialDe
  */
 const cache = {
   get: (key: string) => {
+    if (typeof window === 'undefined') return null;
     try {
       const data = sessionStorage.getItem(`vm_cache_${key}`);
       if (!data) return null;
@@ -57,45 +85,13 @@ const cache = {
     } catch { return null; }
   },
   set: (key: string, val: any, ttl = 300000) => {
+    if (typeof window === 'undefined') return;
     try {
       sessionStorage.setItem(`vm_cache_${key}`, JSON.stringify({
         val,
         expiry: Date.now() + ttl
       }));
     } catch (e) { /* ignore storage full errors */ }
-  }
-};
-
-const handleApiError = async (err: any) => {
-  const errorStr = JSON.stringify(err).toLowerCase();
-  
-  if (errorStr.includes("404") || errorStr.includes("not found") || errorStr.includes("entity was not found")) {
-    const aistudio = (window as any).aistudio;
-    if (aistudio) await aistudio.openSelectKey();
-    throw new GeminiError("API Key missing or invalid. Please re-select your key.", 404);
-  }
-
-  if (errorStr.includes("429") || errorStr.includes("quota") || errorStr.includes("resource_exhausted")) {
-    throw new GeminiError("Service is temporarily busy (Quota Exceeded). Please wait a moment.", 429, "RESOURCE_EXHAUSTED");
-  }
-
-  throw new GeminiError(err.message || "An unexpected error occurred", err.code, err.status);
-};
-
-const parseJsonFromText = (text: string) => {
-  if (!text) throw new Error("Empty response from model");
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    if (match && match[1]) {
-      try { return JSON.parse(match[1]); } catch (e2) {}
-    }
-    const bracketMatch = text.match(/\{[\s\S]*\}/);
-    if (bracketMatch) {
-        try { return JSON.parse(bracketMatch[0]); } catch (e3) {}
-    }
-    throw new Error("Could not parse JSON from response");
   }
 };
 
@@ -108,50 +104,21 @@ export const generateTravelPlans = async (
   userLocation?: { latitude: number; longitude: number }
 ): Promise<TripPlanResponse> => {
   return fetchWithRetry(async () => {
-    try {
-      const ai = getAI();
-      const targetLang = lang === 'cn' ? 'Chinese (Simplified)' : 'English';
-      const prompt = `Plan a travel itinerary from ${from} to ${to} on ${date}. 
-      Preferences: ${preferences.transport}, Budget: ¥${preferences.budget}.
-      CRITICAL: All generated descriptions, tips, and titles MUST be in ${targetLang}. 
-      Maintain English JSON keys. Provide 2 travel options.
-      Format: {
-        "options": [{ "id": "s", "transportType": "s", "totalCost": 0, "totalDuration": 0, "compliance": true, "segments": [{ "id": "s", "type": "transit|security|main|arrival", "title": "s", "description": "s", "startTime": "s", "duration": 0 }] }],
-        "localInfo": { "weather": "s", "tips": "s", "emergency": "s" }
-      }`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-          tools: [{ googleSearch: {} }, { googleMaps: {} }],
-          toolConfig: userLocation ? {
-            retrievalConfig: { latLng: userLocation }
-          } : undefined
-        }
-      });
-
-      const data = parseJsonFromText(response.text || '{}');
-      if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
-        data.groundingSources = response.candidates[0].groundingMetadata.groundingChunks;
-      }
-      return data;
-    } catch (err) { return handleApiError(err); }
+    return await callBackendAPI('generateTravelPlans', {
+      from,
+      to,
+      date,
+      preferences,
+      lang,
+      userLocation
+    });
   });
 };
 
 export const getVisaRequirements = async (origin: string, destination: string, lang: Language): Promise<string> => {
   return fetchWithRetry(async () => {
-    try {
-      const ai = getAI();
-      const targetLang = lang === 'cn' ? 'Chinese' : 'English';
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Provide current visa requirements from ${origin} to ${destination} in ${targetLang}. Use Google Search.`,
-        config: { tools: [{ googleSearch: {} }] }
-      });
-      return response.text || "";
-    } catch (err) { return handleApiError(err); }
+    const result = await callBackendAPI('getVisaRequirements', { origin, destination, lang });
+    return result.text;
   });
 };
 
@@ -160,20 +127,12 @@ export const getSmartAlerts = async (destination: string, lang: Language): Promi
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
-  return fetchWithRetry(async () => {
-    try {
-      const ai = getAI();
-      const targetLang = lang === 'cn' ? 'Chinese' : 'English';
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `3 high-impact travel alerts for ${destination} in ${targetLang}. Return JSON array: [{id: 1, title: "s", desc: "s", type: "warning|event|price", color: "amber|rose|indigo"}]`,
-        config: { tools: [{ googleSearch: {} }] }
-      });
-      const data = parseJsonFromText(response.text || '[]');
-      cache.set(cacheKey, data, 1800000); // 30 mins cache
-      return data;
-    } catch (err) { return handleApiError(err); }
+  const data = await fetchWithRetry(async () => {
+    return await callBackendAPI('getSmartAlerts', { destination, lang });
   });
+  
+  cache.set(cacheKey, data, 1800000); // 30 mins cache
+  return data;
 };
 
 export const generateTouristGuide = async (
@@ -184,94 +143,47 @@ export const generateTouristGuide = async (
   lang: Language
 ): Promise<any> => {
   return fetchWithRetry(async () => {
-    try {
-      const ai = getAI();
-      const targetLang = lang === 'cn' ? 'Chinese' : 'English';
-      const prompt = `Generate a ${days}-day ${isNiche ? 'niche' : 'classic'} guide for ${destination} in ${targetLang}. 
-      Interests: ${preferences}. JSON array: [{ "day": 1, "activities": [{ "time": "s", "location": "s", "description": "s", "travelTip": "s", "mapUrl": "s" }] }]`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: { tools: [{ googleMaps: {} }] }
-      });
-      return parseJsonFromText(response.text || '[]');
-    } catch (err) { return handleApiError(err); }
+    return await callBackendAPI('generateTouristGuide', {
+      destination,
+      days,
+      preferences,
+      isNiche,
+      lang
+    });
   });
 };
 
 export const getLuggageAdvisor = async (airline: string, lang: Language): Promise<string> => {
   return fetchWithRetry(async () => {
-    try {
-      const ai = getAI();
-      const targetLang = lang === 'cn' ? 'Chinese' : 'English';
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Luggage rules for ${airline} in ${targetLang}. Use Google Search.`,
-        config: { tools: [{ googleSearch: {} }] }
-      });
-      return response.text || "";
-    } catch (err) { return handleApiError(err); }
+    const result = await callBackendAPI('getLuggageAdvisor', { airline, lang });
+    return result.text;
   });
 };
 
 export const analyzeBudgetSplit = async (expenses: any[], lang: Language): Promise<string> => {
   return fetchWithRetry(async () => {
-    try {
-      const ai = getAI();
-      const targetLang = lang === 'cn' ? 'Chinese' : 'English';
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Analyze expenses and show who owes what in ${targetLang}: ${JSON.stringify(expenses)}.`
-      });
-      return response.text || "";
-    } catch (err) { return handleApiError(err); }
+    const result = await callBackendAPI('analyzeBudgetSplit', { expenses, lang });
+    return result.text;
   });
 };
 
 export const generateTravelReportSummary = async (tripDetails: any, lang: Language): Promise<string> => {
   return fetchWithRetry(async () => {
-    try {
-      const ai = getAI();
-      const targetLang = lang === 'cn' ? 'Chinese' : 'English';
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Write a summary for this expense report in ${targetLang}: ${JSON.stringify(tripDetails)}.`
-      });
-      return response.text || "";
-    } catch (err) { return handleApiError(err); }
+    const result = await callBackendAPI('generateTravelReportSummary', { tripDetails, lang });
+    return result.text;
   });
 };
 
 export const suggestMeetingTimes = async (arrivalInfo: string, meetings: string, lang: Language): Promise<string> => {
   return fetchWithRetry(async () => {
-    try {
-      const ai = getAI();
-      const targetLang = lang === 'cn' ? 'Chinese' : 'English';
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Suggest business schedule based on arrival: "${arrivalInfo}" and meetings: "${meetings}" in ${targetLang}.`
-      });
-      return response.text || '';
-    } catch (err) { return handleApiError(err); }
+    const result = await callBackendAPI('suggestMeetingTimes', { arrivalInfo, meetings, lang });
+    return result.text;
   });
 };
 
 export const generatePackingList = async (destination: string, purpose: string, days: number, lang: Language): Promise<string[]> => {
   return fetchWithRetry(async () => {
-    try {
-      const ai = getAI();
-      const targetLang = lang === 'cn' ? 'Chinese' : 'English';
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Packing list for ${days} days in ${destination} for ${purpose} in ${targetLang}. Return JSON array of strings.`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } }
-        }
-      });
-      return JSON.parse(response.text || '[]');
-    } catch (err) { return handleApiError(err); }
+    return await callBackendAPI('generatePackingList', { destination, purpose, days, lang });
   });
 };
 
@@ -280,74 +192,33 @@ export const getDailyTravelInsight = async (lang: Language): Promise<{text: stri
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
-  return fetchWithRetry(async () => {
-    try {
-      const ai = getAI();
-      const targetLang = lang === 'cn' ? 'Chinese' : 'English';
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Identify one major travel news or tip for today in ${targetLang} using Google Search.`,
-        config: { tools: [{ googleSearch: {} }] }
-      });
-      const data = {
-        text: response.text || "",
-        sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks || []
-      };
-      cache.set(cacheKey, data, 3600000); // 1 hour cache
-      return data;
-    } catch (err) { return handleApiError(err); }
+  const data = await fetchWithRetry(async () => {
+    return await callBackendAPI('getDailyTravelInsight', { lang });
   });
+  
+  cache.set(cacheKey, data, 3600000); // 1 hour cache
+  return data;
 };
 
 export const generateDestinationVideo = async (destination: string) => {
   return fetchWithRetry(async () => {
-    try {
-      const ai = getAI();
-      let operation = await ai.models.generateVideos({
-        model: 'veo-3.1-fast-generate-preview',
-        prompt: `A beautiful cinematic travel montage of ${destination}, high quality, vibrant colors.`,
-        config: { numberOfVideos: 1, resolution: '720p', aspectRatio: '16:9' }
-      });
-      while (!operation.done) {
-        await new Promise(resolve => setTimeout(resolve, 10000));
-        operation = await ai.operations.getVideosOperation({ operation: operation });
-      }
-      const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-      const res = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
-      const blob = await res.blob();
-      return URL.createObjectURL(blob);
-    } catch (err) { return handleApiError(err); }
+    const result = await callBackendAPI('generateDestinationVideo', { destination });
+    // 将 base64 数据转换为 blob URL
+    const blob = new Blob([Uint8Array.from(atob(result.videoData), c => c.charCodeAt(0))], { type: result.mimeType });
+    return URL.createObjectURL(blob);
   });
 };
 
 export const translateText = async (text: string, targetLang: string): Promise<string> => {
   return fetchWithRetry(async () => {
-    try {
-      const ai = getAI();
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Translate to ${targetLang}: "${text}".`
-      });
-      return response.text || '';
-    } catch (err) { return handleApiError(err); }
+    const result = await callBackendAPI('translateText', { text, targetLang });
+    return result.text;
   });
 };
 
 export const translateImage = async (base64Data: string, mimeType: string, lang: Language) => {
   return fetchWithRetry(async () => {
-    try {
-      const ai = getAI();
-      const targetLang = lang === 'cn' ? 'Chinese' : 'English';
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: {
-          parts: [
-            { inlineData: { data: base64Data, mimeType: mimeType } },
-            { text: `Translate all text in this image into ${targetLang}.` }
-          ]
-        }
-      });
-      return response.text;
-    } catch (err) { return handleApiError(err); }
+    const result = await callBackendAPI('translateImage', { base64Data, mimeType, lang });
+    return result.text;
   });
 };

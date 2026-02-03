@@ -1,20 +1,21 @@
+'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import Layout from './components/Layout';
-import TripPlanner from './components/TripPlanner';
-import TouristGuide from './components/TouristGuide';
-import BusinessHub from './components/BusinessHub';
-import Toolkit from './components/Toolkit';
-import Collaboration from './components/Collaboration';
-import LiveAssistant from './components/LiveAssistant';
+import React, { useState } from 'react';
+import Layout from '../components/Layout';
+import TripPlanner from '../components/TripPlanner';
+import TouristGuide from '../components/TouristGuide';
+import BusinessHub from '../components/BusinessHub';
+import Toolkit from '../components/Toolkit';
+import Collaboration from '../components/Collaboration';
+import LiveAssistant from '../components/LiveAssistant';
+import { Language, TripContext } from '../types';
 import { 
   Package, Globe, Clock, ShieldCheck, Heart, ArrowRight, 
   Sparkles, Loader2, Info, 
   ExternalLink, Zap, BellRing, TrendingDown, AlertCircle, MapPin
 } from 'lucide-react';
-import { getDailyTravelInsight, getSmartAlerts, GeminiError } from './services/geminiService';
-import { Language, TripContext } from './types';
-import { useTranslation } from './services/i18n';
+import { getDailyTravelInsight, getSmartAlerts, GeminiError } from '../services/geminiService';
+import { useTranslation } from '../services/i18n';
 
 const DashboardHome: React.FC<{onExplore: (tab: string) => void, lang: Language, context: TripContext}> = ({onExplore, lang, context}) => {
   const [insight, setInsight] = useState<{text: string, sources: any[]}>({ text: '', sources: [] });
@@ -22,9 +23,9 @@ const DashboardHome: React.FC<{onExplore: (tab: string) => void, lang: Language,
   const [loading, setLoading] = useState({ insight: false, alerts: false });
   const [errors, setErrors] = useState<{ insight: string | null, alerts: string | null }>({ insight: null, alerts: null });
   const t = useTranslation(lang);
-  const fetchRef = useRef<string | null>(null);
+  const fetchRef = React.useRef<string | null>(null);
 
-  useEffect(() => {
+  React.useEffect(() => {
     const fetchData = async () => {
       const currentRequestKey = `${lang}_${context.to}`;
       if (fetchRef.current === currentRequestKey) return;
@@ -138,7 +139,7 @@ const DashboardHome: React.FC<{onExplore: (tab: string) => void, lang: Language,
   );
 };
 
-const App: React.FC = () => {
+export default function Home() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [lang, setLang] = useState<Language>('en');
   const [tripContext, setTripContext] = useState<TripContext>({
@@ -171,6 +172,4 @@ const App: React.FC = () => {
       <LiveAssistant lang={lang} />
     </Layout>
   );
-};
-
-export default App;
+}
