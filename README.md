@@ -1,6 +1,7 @@
 # VoyageMaster AI (远航大师) - 智能出行全方位建议应用
 
 VoyageMaster AI 是一款基于 Google Gemini 系列大模型构建的下一代智能出行管理平台。它不仅是一个行程规划器，更是一个融合了实时数据分析、多模态视觉处理、企业级合规审计以及协同办公能力的个人差旅助手。
+demo体验地址：https://voyagemaster123.netlify.app/
 
 ## 🌟 核心功能
 
